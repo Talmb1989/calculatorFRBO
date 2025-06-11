@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FSBO vs Professional Broker ROI Calculator</title>
+    
+    <!-- React and dependencies -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chart.js/3.9.1/chart.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 25%, #7c3aed 50%, #ec4899 75%, #f59e0b 100%);
+            min-height: 100vh;
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+        }
+        
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.1);
+        }
+        
+        .glass-dark {
+            background: rgba(0, 0, 0, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .gradient-text {
+            background: linear-gradient(135deg, #1e3a8a 0%, #7c3aed 50%, #ec4899 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .animate-float {
+            animation: float 6s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(5deg); }
+        }
+        
+        .pulse-glow {
+            animation: pulseGlow 3s ease-in-out infinite;
+        }
+        
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 20px rgba(124, 58, 237, 0.5); }
+            50% { box-shadow: 0 0 40px rgba(124, 58, 237, 0.8); }
+        }
+        
+        .slider-track {
+            background: linear-gradient(90deg, #ef4444 0%, #f97316 25%, #eab308 50%, #22c55e 75%, #10b981 100%);
+        }
+        
+        .metric-card {
+            transition: all 0.3s ease;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-5px) scale(1.02);
+        }
+        
+        .chart-container {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(10px);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+        
+        .icon {
+            width: 1.5rem;
+            height: 1.5rem;
+            display: inline-block;
+        }
+        
+        .icon-lg {
+            width: 3rem;
+            height: 3rem;
+        }
+        
+        .icon-xl {
+            width: 5rem;
+            height: 5rem;
+        }
+        
+        .value-highlight {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.75rem;
+            font-weight: bold;
+            display: inline-block;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        }
+        
+        .danger-highlight {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.75rem;
+            font-weight: bold;
+            display: inline-block;
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #7c3aed, #ec4899);
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        // Chart.js React wrapper components
+        const BarChartComponent = ({ data, title }) => {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (canvasRef.current && data.length > 0) {
+                    // Destroy existing chart
+                    if (chartRef.current) {
+                        chartRef.current.destroy();
+                    }
+
+                    const ctx = canvasRef.current.getContext('2d');
+                    chartRef.current = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: data.map(item => item.method),
+                            datasets: [{
+                                label: 'Days on Market',
+                                data: data.map(item => item.days),
+                                backgroundColor: ['#ef4444', '#10b981'],
+                                borderColor: ['#dc2626', '#059669'],
+                                borderWidth: 2
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: false
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    title: {
+                                        display: true,
+                                        text: 'Days'
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+
+                return () => {
+                    if (chartRef.current) {
+                        chartRef.current.destroy();
+                    }
+                };
+            }, [data]);
+
+            return <canvas ref={canvasRef} style={{ maxHeight: '250px' }}></canvas>;
+        };
+
+        const LineChartComponent = ({ data, title }) => {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (canvasRef.current && data.length > 0) {
+                    if (chartRef.current) {
+                        chartRef.current.destroy();
+                    }
+
+                    const ctx = canvasRef.current.getContext('2d');
+                    chartRef.current = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: data.map(item => `Month ${item.month}`),
+                            datasets: [{
+                                label: 'Cumulative Benefit',
+                                data: data.map(item => item.cumulativeBenefit),
+                                borderColor: '#10b981',
+                                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                fill: true,
+                                tension: 0.4
+                            }, {
+                                label: 'Break Even Line',
+                                data: new Array(data.length).fill(0),
+                                borderColor: '#ef4444',
+                                borderDash: [5, 5],
+                                fill: false
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: true
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    title: {
+                                        display: true,
+                                        text: 'Benefit ($)'
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+
+                return () => {
+                    if (chartRef.current) {
+                        chartRef.current.destroy();
+                    }
+                };
+            }, [data]);
+
+            return <canvas ref={canvasRef} style={{ maxHeight: '300px' }}></canvas>;
+        };
+
+        const PieChartComponent = ({ data, title }) => {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (canvasRef.current && data.length > 0) {
+                    if (chartRef.current) {
+                        chartRef.current.destroy();
+                    }
+
+                    const positiveData = data.filter(item => item.value > 0);
+                    const ctx = canvasRef.current.getContext('2d');
+                    chartRef.current = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: positiveData.map(item => item.name),
+                            datasets: [{
+                                data: positiveData.map(item => item.value),
+                                backgroundColor: positiveData.map(item => item.color),
+                                borderWidth: 2,
+                                borderColor: '#fff'
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom'
+                                }
+                            }
+                        }
+                    });
+                }
+
+                return () => {
+                    if (chartRef.current) {
+                        chartRef.current.destroy();
+                    }
+                };
+            }, [data]);
+
+            return <canvas ref={canvasRef} style={{ maxHeight: '300px' }}></canvas>;
+        };
+
+        const Icon = ({ name, className = "icon" }) => {
+            const icons = {
+                calculator: "🧮",
+                'dollar-sign': "$",
+                clock: "⏰",
+                percent: "%",
+                download: "⬇️",
+                'bar-chart-3': "📊",
+                'trending-up': "📈",
+                'trending-down': "📉",
+                'shield-check': "✅",
+                users: "👥",
+                home: "🏠",
+                calendar: "📅",
+                'alert-circle': "⚠️",
+                'check-circle': "✅",
+                target: "🎯",
+                zap: "⚡",
+                'pie-chart': "🥧",
+                award: "🏆"
+            };
+            
+            return <span className={className}>{icons[name] || "•"}</span>;
+        };
+
+        function ROICalculator() {
+            const [inputs, setInputs] = useState({
+                currentRent: '',
+                bedrooms: '1',
+                borough: 'manhattan',
+                brokerFeePercent: '12',
+                averageTenancy: '2',
+                rentIncreasePercent: 15
+            });
+
+            const [showResults, setShowResults] = useState(false);
+
+            // Market data - days on market for FSBO by bedroom count and borough
+            const marketTiming = {
+                manhattan: { 1: 26, 2: 28, 3: 35, 4: 42 },
+                brooklyn: { 1: 31, 2: 33, 3: 38, 4: 45 }
+            };
+
+            // Professional broker reduces time by 60%
+            const brokerTimeReduction = 0.6;
+
+            const handleInputChange = (field, value) => {
+                setInputs(prev => ({
+                    ...prev,
+                    [field]: value
+                }));
+            };
+
+            const results = useMemo(() => {
+                if (!inputs.currentRent) return null;
+
+                const currentRent = parseFloat(inputs.currentRent) || 0;
+                const tenancyYears = parseInt(inputs.averageTenancy);
+                const rentIncreasePercent = inputs.rentIncreasePercent / 100;
+                const brokerFeePercent = parseFloat(inputs.brokerFeePercent) / 100;
+                
+                // Calculate market rent with broker expertise
+                const marketRent = Math.round(currentRent * (1 + rentIncreasePercent));
+                const monthlyIncrease = marketRent - currentRent;
+                const annualIncrease = monthlyIncrease * 12;
+                
+                // Time to rent calculations
+                const fsboTimeToRent = marketTiming[inputs.borough][inputs.bedrooms];
+                const brokerTimeToRent = Math.round(fsboTimeToRent * (1 - brokerTimeReduction));
+                const timeSavings = fsboTimeToRent - brokerTimeToRent;
+                
+                // Costs and savings
+                const dailyCarryingCost = Math.round(currentRent / 30);
+                const fsboCarryingCosts = dailyCarryingCost * fsboTimeToRent;
+                const brokerCarryingCosts = dailyCarryingCost * brokerTimeToRent;
+                const carryingSavings = fsboCarryingCosts - brokerCarryingCosts;
+                
+                const brokerFee = Math.round(marketRent * brokerFeePercent * 12);
+                
+                // ROI calculations
+                const totalIncreaseOverTenancy = annualIncrease * tenancyYears;
+                const totalSavingsOverTenancy = carryingSavings * (tenancyYears); // Assuming one turnover per tenancy
+                const totalBenefitBeforeFee = totalIncreaseOverTenancy + totalSavingsOverTenancy;
+                const netBenefit = totalBenefitBeforeFee - brokerFee;
+                const annualizedROI = ((netBenefit / tenancyYears) / brokerFee * 100);
+                const breakEvenMonths = Math.ceil(brokerFee / monthlyIncrease);
+                
+                // Monthly amortization
+                const monthlyAmortization = Math.round(brokerFee / (tenancyYears * 12));
+                const effectiveMonthlyIncrease = monthlyIncrease - monthlyAmortization;
+
+                return {
+                    currentRent,
+                    marketRent,
+                    monthlyIncrease,
+                    annualIncrease,
+                    brokerFee,
+                    fsboTimeToRent,
+                    brokerTimeToRent,
+                    timeSavings,
+                    carryingSavings,
+                    totalBenefitBeforeFee,
+                    netBenefit,
+                    annualizedROI: Math.round(annualizedROI),
+                    breakEvenMonths,
+                    monthlyAmortization,
+                    effectiveMonthlyIncrease,
+                    totalIncreaseOverTenancy,
+                    rentIncreasePercent: inputs.rentIncreasePercent
+                };
+            }, [inputs]);
+
+            // Chart data
+            const timeComparisonData = results ? [
+                { method: 'FSBO', days: results.fsboTimeToRent, cost: results.currentRent / 30 * results.fsboTimeToRent },
+                { method: 'Professional Broker', days: results.brokerTimeToRent, cost: results.currentRent / 30 * results.brokerTimeToRent }
+            ] : [];
+
+            const roiOverTimeData = results ? Array.from({length: parseInt(inputs.averageTenancy) * 12}, (_, i) => {
+                const month = i + 1;
+                const cumulativeIncrease = results.monthlyIncrease * month;
+                const cumulativeSavings = month <= 1 ? results.carryingSavings : results.carryingSavings;
+                const cumulativeBenefit = cumulativeIncrease + cumulativeSavings - results.brokerFee;
+                
+                return {
+                    month,
+                    cumulativeBenefit: Math.round(cumulativeBenefit),
+                    brokerFee: -results.brokerFee,
+                    breakEven: cumulativeBenefit >= 0 ? cumulativeBenefit : 0
+                };
+            }) : [];
+
+            const benefitBreakdownData = results ? [
+                { name: 'Rent Increase', value: results.totalIncreaseOverTenancy, color: '#10b981' },
+                { name: 'Time Savings', value: results.carryingSavings, color: '#3b82f6' },
+                { name: 'Broker Fee', value: -results.brokerFee, color: '#ef4444' }
+            ] : [];
+
+            const downloadDetailedReport = () => {
+                if (!results) {
+                    alert('Please enter property details first');
+                    return;
+                }
+
+                const csvContent = [
+                    ['FSBO vs Professional Broker ROI Analysis Report'],
+                    ['Generated on:', new Date().toLocaleDateString()],
+                    [''],
+                    ['=== PROPERTY DETAILS ==='],
+                    ['Current Monthly Rent', `$${results.currentRent.toLocaleString()}`],
+                    ['Bedrooms', `${inputs.bedrooms} bedroom(s)`],
+                    ['Borough', inputs.borough.charAt(0).toUpperCase() + inputs.borough.slice(1)],
+                    ['Average Tenancy Period', `${inputs.averageTenancy} year(s)`],
+                    ['Broker Fee Percentage', `${inputs.brokerFeePercent}%`],
+                    [''],
+                    ['=== MARKET ANALYSIS ==='],
+                    ['Professional Market Rent', `$${results.marketRent.toLocaleString()}`],
+                    ['Rent Increase with Broker', `${results.rentIncreasePercent}%`],
+                    ['Monthly Rent Increase', `$${results.monthlyIncrease.toLocaleString()}`],
+                    ['Annual Rent Increase', `$${results.annualIncrease.toLocaleString()}`],
+                    [''],
+                    ['=== TIME TO RENT COMPARISON ==='],
+                    ['FSBO Average Days on Market', `${results.fsboTimeToRent} days`],
+                    ['Professional Broker Days on Market', `${results.brokerTimeToRent} days`],
+                    ['Time Savings', `${results.timeSavings} days (${Math.round(results.timeSavings/results.fsboTimeToRent*100)}% faster)`],
+                    [''],
+                    ['=== COST ANALYSIS ==='],
+                    ['One-Time Broker Fee', `$${results.brokerFee.toLocaleString()}`],
+                    ['Carrying Cost Savings', `$${results.carryingSavings.toLocaleString()}`],
+                    ['Total Benefit Before Fee', `$${results.totalBenefitBeforeFee.toLocaleString()}`],
+                    ['Net Benefit After Fee', `$${results.netBenefit.toLocaleString()}`],
+                    [''],
+                    ['=== ROI METRICS ==='],
+                    ['Break-Even Period', `${results.breakEvenMonths} months`],
+                    ['Annualized ROI', `${results.annualizedROI}%`],
+                    ['Monthly Amortization', `$${results.monthlyAmortization.toLocaleString()}`],
+                    ['Effective Monthly Increase', `$${results.effectiveMonthlyIncrease.toLocaleString()}`],
+                    [''],
+                    ['=== SUMMARY ==='],
+                    ['Total Investment', `$${results.brokerFee.toLocaleString()}`],
+                    ['Total Return', `$${results.totalBenefitBeforeFee.toLocaleString()}`],
+                    ['Net Profit', `$${results.netBenefit.toLocaleString()}`],
+                    ['ROI Multiple', `${(results.totalBenefitBeforeFee / results.brokerFee).toFixed(2)}x`]
+                ].map(row => row.join(',')).join('\n');
+
+                const blob = new Blob([csvContent], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Broker_ROI_Analysis_${inputs.borough}_${inputs.bedrooms}BR_${new Date().toISOString().split('T')[0]}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            };
+
+            useEffect(() => {
+                if (results) {
+                    setShowResults(true);
+                }
+            }, [results]);
+
+            return (
+                <div className="min-h-screen py-4 px-4 sm:px-6 lg:px-8">
+                    <div className="max-w-7xl mx-auto">
+                        {/* Hero Header */}
+                        <div className="text-center mb-8 lg:mb-12">
+                            <div className="animate-float inline-block mb-6">
+                                <Icon name="award" className="icon-xl text-white" />
+                            </div>
+                            <h1 className="text-3xl sm:text-4xl lg:text-6xl font-bold text-white mb-4">
+                                FSBO vs Professional Broker
+                            </h1>
+                            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold gradient-text mb-6 bg-white px-6 py-3 rounded-2xl inline-block">
+                                ROI Calculator
+                            </h2>
+                            <p className="text-lg sm:text-xl text-white/90 max-w-3xl mx-auto">
+                                Discover the true financial impact of working with a professional broker. 
+                                See how much more you earn and how much faster you rent.
+                            </p>
+                        </div>
+
+                        <div className="grid lg:grid-cols-5 gap-8">
+                            {/* Input Section */}
+                            <div className="lg:col-span-2">
+                                <div className="glass-card rounded-2xl p-6 sm:p-8 sticky top-4">
+                                    <h2 className="text-2xl font-bold gradient-text mb-6 flex items-center">
+                                        <Icon name="home" className="icon mr-3" />
+                                        Property Details
+                                    </h2>
+                                    
+                                    <div className="space-y-6">
+                                        {/* Current Rent */}
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                Current Monthly Rent
+                                            </label>
+                                            <div className="relative">
+                                                <Icon name="dollar-sign" className="absolute left-3 top-1/2 transform -translate-y-1/2 icon text-gray-400" />
+                                                <input
+                                                    type="number"
+                                                    placeholder="3500"
+                                                    className="w-full pl-10 pr-4 py-4 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-purple-200 focus:border-purple-400 transition-all text-lg font-semibold"
+                                                    value={inputs.currentRent}
+                                                    onChange={(e) => handleInputChange('currentRent', e.target.value)}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Bedrooms */}
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                Apartment Layout
+                                            </label>
+                                            <select
+                                                className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-purple-200 focus:border-purple-400 transition-all text-lg font-semibold"
+                                                value={inputs.bedrooms}
+                                                onChange={(e) => handleInputChange('bedrooms', e.target.value)}>
+                                                <option value="1">1 Bedroom (Rents Fastest)</option>
+                                                <option value="2">2 Bedrooms (Rents Fast)</option>
+                                                <option value="3">3 Bedrooms (Moderate Time)</option>
+                                                <option value="4">4+ Bedrooms (Takes Longer)</option>
+                                            </select>
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                Smaller units typically rent faster in NYC
+                                            </p>
+                                        </div>
+
+                                        {/* Borough */}
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                Borough
+                                            </label>
+                                            <select
+                                                className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-purple-200 focus:border-purple-400 transition-all text-lg font-semibold"
+                                                value={inputs.borough}
+                                                onChange={(e) => handleInputChange('borough', e.target.value)}>
+                                                <option value="manhattan">Manhattan</option>
+                                                <option value="brooklyn">Brooklyn</option>
+                                            </select>
+                                        </div>
+
+                                        {/* Rent Increase Slider */}
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-3">
+                                                Broker's Rent Optimization: <span className="value-highlight">{inputs.rentIncreasePercent}%</span>
+                                            </label>
+                                            <div className="relative">
+                                                <input
+                                                    type="range"
+                                                    min="0"
+                                                    max="50"
+                                                    value={inputs.rentIncreasePercent}
+                                                    onChange={(e) => handleInputChange('rentIncreasePercent', parseInt(e.target.value))}
+                                                    className="w-full h-3 rounded-lg appearance-none cursor-pointer slider-track"
+                                                />
+                                                <div className="flex justify-between text-xs text-gray-500 mt-2">
+                                                    <span>0% (No increase)</span>
+                                                    <span>25% (Market rate)</span>
+                                                    <span>50% (Premium)</span>
+                                                </div>
+                                            </div>
+                                            <p className="text-xs text-gray-600 mt-2">
+                                                Professional brokers use market data and pricing strategies to optimize rent
+                                            </p>
+                                        </div>
+
+                                        {/* Broker Fee */}
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                Broker Fee Percentage
+                                            </label>
+                                            <div className="relative">
+                                                <Icon name="percent" className="absolute left-3 top-1/2 transform -translate-y-1/2 icon text-gray-400" />
+                                                <input
+                                                    type="number"
+                                                    placeholder="12"
+                                                    min="8"
+                                                    max="15"
+                                                    className="w-full pl-10 pr-4 py-4 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-purple-200 focus:border-purple-400 transition-all text-lg font-semibold"
+                                                    value={inputs.brokerFeePercent}
+                                                    onChange={(e) => handleInputChange('brokerFeePercent', e.target.value)}
+                                                />
+                                            </div>
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                Typical NYC broker fees range from 8-15% of annual rent
+                                            </p>
+                                        </div>
+
+                                        {/* Average Tenancy */}
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                Expected Tenancy Duration
+                                            </label>
+                                            <select
+                                                className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-purple-200 focus:border-purple-400 transition-all text-lg font-semibold"
+                                                value={inputs.averageTenancy}
+                                                onChange={(e) => handleInputChange('averageTenancy', e.target.value)}>
+                                                <option value="1">1 Year</option>
+                                                <option value="2">2 Years</option>
+                                                <option value="3">3 Years</option>
+                                                <option value="4">4 Years</option>
+                                                <option value="5">5+ Years</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Results Section */}
+                            <div className="lg:col-span-3">
+                                {!showResults ? (
+                                    <div className="glass-card rounded-2xl p-12 text-center">
+                                        <div className="animate-float">
+                                            <Icon name="bar-chart-3" className="icon-xl text-gray-400 mx-auto mb-6" />
+                                        </div>
+                                        <h3 className="text-2xl font-bold text-gray-600 mb-4">Ready to Calculate Your ROI?</h3>
+                                        <p className="text-gray-500 text-lg">Enter your property details to see the financial impact of working with a professional broker</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-6">
+                                        {/* Key Metrics */}
+                                        <div className="glass-card rounded-2xl p-6">
+                                            <div className="flex items-center justify-between mb-6">
+                                                <h2 className="text-2xl font-bold gradient-text flex items-center">
+                                                    <Icon name="trending-up" className="icon mr-3" />
+                                                    ROI Analysis
+                                                </h2>
+                                                <button
+                                                    onClick={downloadDetailedReport}
+                                                    className="flex items-center space-x-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all transform hover:scale-105 pulse-glow">
+                                                    <Icon name="download" className="icon" />
+                                                    <span>Export Report</span>
+                                                </button>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                                                <div className="metric-card bg-gradient-to-br from-green-500 to-emerald-600 text-white p-4 rounded-xl text-center">
+                                                    <Icon name="dollar-sign" className="icon mx-auto mb-2" />
+                                                    <p className="text-sm opacity-90">Monthly Increase</p>
+                                                    <p className="text-2xl font-bold">${results.monthlyIncrease.toLocaleString()}</p>
+                                                </div>
+                                                <div className="metric-card bg-gradient-to-br from-blue-500 to-blue-600 text-white p-4 rounded-xl text-center">
+                                                    <Icon name="clock" className="icon mx-auto mb-2" />
+                                                    <p className="text-sm opacity-90">Time Savings</p>
+                                                    <p className="text-2xl font-bold">{results.timeSavings} days</p>
+                                                </div>
+                                                <div className="metric-card bg-gradient-to-br from-purple-500 to-purple-600 text-white p-4 rounded-xl text-center">
+                                                    <Icon name="percent" className="icon mx-auto mb-2" />
+                                                    <p className="text-sm opacity-90">Annualized ROI</p>
+                                                    <p className="text-2xl font-bold">{results.annualizedROI}%</p>
+                                                </div>
+                                                <div className="metric-card bg-gradient-to-br from-orange-500 to-red-500 text-white p-4 rounded-xl text-center">
+                                                    <Icon name="calendar" className="icon mx-auto mb-2" />
+                                                    <p className="text-sm opacity-90">Break-Even</p>
+                                                    <p className="text-2xl font-bold">{results.breakEvenMonths} mo</p>
+                                                </div>
+                                            </div>
+
+                                            {/* Big ROI Callout */}
+                                            <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white p-6 rounded-2xl text-center mb-6">
+                                                <h3 className="text-xl font-bold mb-2">Total Net Benefit Over {inputs.averageTenancy} Year(s)</h3>
+                                                <p className="text-4xl font-bold mb-2">${results.netBenefit.toLocaleString()}</p>
+                                                <p className="text-green-100">After paying broker fee of ${results.brokerFee.toLocaleString()}</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Time Comparison Chart */}
+                                        <div className="chart-container">
+                                            <h3 className="text-xl font-bold mb-4 flex items-center">
+                                                <Icon name="clock" className="icon mr-2" />
+                                                Time to Rent Comparison
+                                            </h3>
+                                            <BarChartComponent data={timeComparisonData} title="Time Comparison" />
+                                            <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                                                <p className="text-sm text-blue-800">
+                                                    <Icon name="zap" className="icon mr-1" />
+                                                    Professional brokers rent your apartment <strong>{Math.round((1 - results.brokerTimeToRent/results.fsboTimeToRent)*100)}% faster</strong>, 
+                                                    saving you <strong>${results.carryingSavings.toLocaleString()}</strong> in carrying costs.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* ROI Over Time */}
+                                        <div className="chart-container">
+                                            <h3 className="text-xl font-bold mb-4 flex items-center">
+                                                <Icon name="trending-up" className="icon mr-2" />
+                                                Cumulative Benefit Over Time
+                                            </h3>
+                                            <LineChartComponent data={roiOverTimeData} title="ROI Over Time" />
+                                            <div className="mt-4 p-4 bg-green-50 rounded-lg">
+                                                <p className="text-sm text-green-800">
+                                                    <Icon name="check-circle" className="icon mr-1" />
+                                                    You break even after <strong>{results.breakEvenMonths} months</strong> and earn 
+                                                    <strong> ${(results.netBenefit / parseInt(inputs.averageTenancy)).toLocaleString()}</strong> per year after that.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Benefit Breakdown */}
+                                        <div className="chart-container">
+                                            <h3 className="text-xl font-bold mb-4 flex items-center">
+                                                <Icon name="pie-chart" className="icon mr-2" />
+                                                Benefit Breakdown
+                                            </h3>
+                                            <PieChartComponent data={benefitBreakdownData} title="Benefit Breakdown" />
+                                        </div>
+
+                                        {/* Key Benefits Infographic */}
+                                        <div className="glass-card rounded-2xl p-6">
+                                            <h3 className="text-xl font-bold gradient-text mb-6 flex items-center">
+                                                <Icon name="award" className="icon mr-2" />
+                                                Why Professional Brokers Win
+                                            </h3>
+                                            <div className="grid md:grid-cols-2 gap-6">
+                                                <div className="space-y-4">
+                                                    <div className="flex items-start space-x-3 p-4 bg-green-50 rounded-lg">
+                                                        <Icon name="trending-up" className="icon text-green-600 mt-1" />
+                                                        <div>
+                                                            <h4 className="font-semibold text-green-800">Market Expertise</h4>
+                                                            <p className="text-sm text-green-700">Professional pricing increases rent by {results.rentIncreasePercent}% (${results.monthlyIncrease.toLocaleString()}/month)</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-start space-x-3 p-4 bg-blue-50 rounded-lg">
+                                                        <Icon name="clock" className="icon text-blue-600 mt-1" />
+                                                        <div>
+                                                            <h4 className="font-semibold text-blue-800">Speed to Market</h4>
+                                                            <p className="text-sm text-blue-700">Rent {results.timeSavings} days faster, saving ${results.carryingSavings.toLocaleString()}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-4">
+                                                    <div className="flex items-start space-x-3 p-4 bg-purple-50 rounded-lg">
+                                                        <Icon name="shield-check" className="icon text-purple-600 mt-1" />
+                                                        <div>
+                                                            <h4 className="font-semibold text-purple-800">Quality Tenants</h4>
+                                                            <p className="text-sm text-purple-700">Professional screening reduces vacancy risk</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-start space-x-3 p-4 bg-orange-50 rounded-lg">
+                                                        <Icon name="users" className="icon text-orange-600 mt-1" />
+                                                        <div>
+                                                            <h4 className="font-semibold text-orange-800">Broader Reach</h4>
+                                                            <p className="text-sm text-orange-700">Access to exclusive networks and platforms</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Bottom Line Summary */}
+                                        <div className="glass-card rounded-2xl p-8 text-center bg-gradient-to-r from-green-500 to-emerald-500 text-white">
+                                            <Icon name="target" className="icon-lg mx-auto mb-4" />
+                                            <h3 className="text-2xl font-bold mb-4">The Bottom Line</h3>
+                                            <div className="grid md:grid-cols-3 gap-6 text-center">
+                                                <div>
+                                                    <p className="text-3xl font-bold">${results.brokerFee.toLocaleString()}</p>
+                                                    <p className="opacity-90">Investment</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-3xl font-bold">${results.totalBenefitBeforeFee.toLocaleString()}</p>
+                                                    <p className="opacity-90">Total Return</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-3xl font-bold">{(results.totalBenefitBeforeFee / results.brokerFee).toFixed(1)}x</p>
+                                                    <p className="opacity-90">ROI Multiple</p>
+                                                </div>
+                                            </div>
+                                            <p className="mt-6 text-lg opacity-95">
+                                                Every dollar invested in professional broker services returns <strong>${(results.totalBenefitBeforeFee / results.brokerFee).toFixed(2)}</strong>
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<ROICalculator />, document.getElementById('root'));
+    </script>
+</body>
+</html>
